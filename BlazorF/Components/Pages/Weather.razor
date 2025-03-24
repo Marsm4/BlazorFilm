@@ -1,0 +1,761 @@
+﻿@page "/weather"
+@attribute [StreamRendering]
+@using Microsoft.AspNetCore.SignalR.Client
+@rendermode InteractiveServer
+@using BlazorF.ApiFilm.Models
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+@using BlazorF.ApiFilm
+
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+<style>
+    /* Общий стиль для страницы */
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f9;
+        margin: 0;
+        padding: 20px;
+    }
+
+    /* Заголовок */
+    h3 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    /* Список сообщений */
+    ul {
+        list-style-type: none;
+        padding: 0;
+        margin: 0;
+        max-height: 400px; /* Ограничение высоты списка */
+        overflow-y: auto; /* Добавление прокрутки */
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background-color: #fff;
+        padding: 10px;
+    }
+
+    /* Элементы списка */
+    li {
+        margin-bottom: 15px;
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+    }
+
+        li:last-child {
+            border-bottom: none; /* Убираем границу для последнего элемента */
+        }
+
+    /* Имя пользователя */
+    strong {
+        color: #007bff;
+        font-weight: bold;
+    }
+
+    /* Текст сообщения */
+    span {
+        margin-right: 10px;
+        font-size: 14px;
+        color: #555;
+    }
+
+    /* Изображения */
+    img {
+        max-width: 200px;
+        border-radius: 8px;
+        margin-top: 5px;
+        display: block;
+    }
+
+    /* Название фильма */
+    small {
+        color: #888;
+        font-size: 12px;
+    }
+
+    /* Форма отправки сообщений */
+    div.form-container {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    input[type="text"],
+    input[type="url"] {
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    button {
+        padding: 10px;
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+    /* Выпадающий список фильмов */
+    select {
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+</style>
+
+
+
+<h3>Weather Chat</h3>
+
+<ul>
+    @foreach (var msg in messages1)
+    {
+        @foreach (var Us in usr)
+        {
+            @if (msg.UserId == Us.Id)
+            {
+                @foreach (var mo in movies)
+                {
+                    @if (msg.MovieId == mo.Id)
+                    {
+                        <li>
+                            <strong>@Us.Name:</strong>
+                            @if (!string.IsNullOrEmpty(msg.Content))
+                            {
+                                <span>@msg.Content</span>
+                            }
+                            @if (!string.IsNullOrEmpty(msg.Url))
+                            {
+                                <img src="@msg.Url" alt="Uploaded photo" />
+                            }
+                            <small>(Фильм: @mo.Title)</small>
+                            @if (Us.Id == idUs)
+                            {
+                            <button @onclick="() => EditMes(msg)" class="btn btn-light">
+                                <i class="fa-solid fa-pen"></i>
+                                </button>
+                            }
+                        </li>
+                    }
+                }
+            }
+        }
+    }
+</ul>
+<div class="form-container">
+<EditForm Model="mesa" OnValidSubmit="isEditing ? HandleUpdateMes : HandleCreateMes" FormName="movieForm">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div class="form-group">
+        
+        <InputTextArea id="Content" @bind-Value="mesa.Content" placeholder="Содержание" class="form-control" />
+    </div>
+    <div class="form-group">
+        
+        <InputText id="Url" @bind-Value="mesa.Url" placeholder="URL изображения" class="form-control" />
+    </div>
+    <select @bind="selectedMovieId">
+        <option value="">-- Выберите фильм --</option>
+        @foreach (var movie in movies)
+        {
+            <option value="@movie.Id">@movie.Title</option>
+        }
+    </select>
+        <button type="submit" class="btn btn-primary">@((isEditing) ? "Сохранить" : "Отправить")</button>
+    @if (isEditing)
+    {
+        <button type="button" class="btn btn-secondary" @onclick="ResetForm">Отмена</button>
+    }
+</EditForm>
+
+    <p style="text-align: left;">
+
+        <NavLink class="btn btn-primary" href="/profile">Назад в профиль</NavLink>
+    </p>
+</div>
+
+@if (usr1.Role == "Администратор")
+{
+    <p style="text-align: left;">
+
+        <NavLink class="btn btn-primary" href="/admin">Админка</NavLink>
+    </p>
+}
+
+
+@code {
+    string message = "";
+    string user = "";
+    string iUser = @Counter.idU.Name;
+    string movie = "";
+    HubConnection hubConnection;
+    List<string> messages = new List<string>();
+    List<Message> messages1 = new List<Message>();
+    private List<Movie> movies = new List<Movie>();
+    private Movie? _movie;
+    public string selectedMovieId;
+    public int ID;
+    public string MovTitle;
+    public int idmov;
+    public int idUs = @Counter.idU.Id;
+    private string photoUrl = "";
+    private int selectedMessageId;
+    public string NameU;
+    private List<User> usr = new List<User>();
+    private List<string> items = new List<string>();
+    private System.Timers.Timer timer;
+    public User? usr1 = Counter.idU;
+    private bool isEditing = false;
+    private Message mesa = new Message();
+
+
+    private async Task LoadMovies()
+    {
+
+        try
+        {
+            var response = await Http.GetAsync("api/movies");
+            if (response.IsSuccessStatusCode)
+            {
+                movies = await response.Content.ReadFromJsonAsync<List<Movie>>();
+            }
+            else
+            {
+                ShowAlert($"Ошибка загрузки фильмов: {response.StatusCode}");
+            }
+
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Ошибка: {ex.Message}");
+        }
+    }
+
+    private async Task LoadMessage()
+    {
+
+        try
+        {
+            var response = await Http.GetAsync("api/Chat");
+            if (response.IsSuccessStatusCode)
+            {
+                messages1 = await response.Content.ReadFromJsonAsync<List<Message>>();
+
+            }
+            else
+            {
+                ShowAlert($"Ошибка загрузки сообщений: {response.StatusCode}");
+            }
+
+
+        }
+        catch (Exception ex)
+        {
+            // ShowAlert($"Ошибка: {ex.Message}");
+        }
+
+
+    }
+
+
+    private async Task LoadUser()
+    {
+
+        try
+        {
+            var response = await Http.GetAsync("api/User");
+            if (response.IsSuccessStatusCode)
+            {
+
+                usr = await response.Content.ReadFromJsonAsync<List<User>>();
+            }
+            else
+            {
+                ShowAlert($"Ошибка загрузки сообщений: {response.StatusCode}");
+            }
+
+
+        }
+        catch (Exception ex)
+        {
+            // ShowAlert($"Ошибка: {ex.Message}");
+        }
+
+
+    }
+
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+
+        await LoadMessage();
+
+
+        await LoadMovies();
+        await LoadUser();
+
+        user = iUser;
+
+        hubConnection = new HubConnectionBuilder().WithUrl("https://localhost:7023/chatHub").Build();
+        try
+        {
+            hubConnection.On<string, string, string>("ReceiveMessage", (user, message, movie) =>
+            {
+
+                var newMessage = new Message
+                    {
+                        UserId = idUs,
+                        Content = message,
+                        MovieId = ID,
+                        Url = photoUrl
+                    };
+
+                UpdateMessages(newMessage);
+
+                InvokeAsync(StateHasChanged);
+                
+
+            });
+            await InvokeAsync(StateHasChanged);
+            hubConnection.On<string, string, string>("ReceivePhoto", (user, photoPath, movie) =>
+            {
+
+                var newMessage = new Message
+                    {
+                        UserId = idUs,
+                        Content = message,
+                        MovieId = ID,
+                        Url = photoUrl
+                    };
+
+                UpdateMessages(newMessage);
+
+                InvokeAsync(StateHasChanged);
+                
+
+            });
+            await InvokeAsync(StateHasChanged);
+
+
+            await hubConnection.StartAsync();
+
+        }
+        catch
+        {
+            ShowAlert($"Error sending message: {hubConnection.State}");
+        }
+
+   
+        timer = new System.Timers.Timer(1500); // Каждые 2 секунды
+        timer.Elapsed += OnTimedEvent;
+        timer.AutoReset = true;
+        timer.Enabled = true;
+    
+
+
+
+    }
+
+    private async Task HandleUpdateMes()
+    {
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"api/Chat/{mesa.Id}", mesa);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadMessage();
+                ResetForm();
+            }
+            else
+            {
+                var errorMessage = await response.Content.ReadAsStringAsync();
+                ShowAlert($"Ошибка обновления пользователя: {errorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Ошибка: {ex.Message}");
+        }
+    }
+
+
+    private async Task HandleCreateMes()
+    {
+        try
+        {
+            if (selectedMovieId != null && selectedMovieId != "0")
+            {
+                idmov = int.Parse(selectedMovieId);
+            }
+            else
+            {
+                idmov = 1;
+            }
+
+            // Call FilmConnect asynchronously and await its completion
+            await Film();
+            var newMessage = new Message
+                {
+                    UserId = idUs,
+                    Content = mesa.Content,
+                    MovieId = ID,
+                    Url = mesa.Url
+                };
+            var response = await Http.PostAsJsonAsync("api/Chat", newMessage);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadMessage();
+                ResetForm();
+            }
+            else
+            {
+                var errorMessage = await response.Content.ReadAsStringAsync();
+                ShowAlert($"Ошибка добавления пользователя: {errorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Ошибка: {ex.Message}");
+        }
+    }
+
+    private void ResetForm()
+    {
+        
+        mesa = new Message();
+        isEditing = false;
+        selectedMovieId = "";
+    }
+
+    private void EditMes(Message mesag)
+    {
+        mesa = mesag;
+        isEditing = true;
+        selectedMovieId = mesa.MovieId.ToString();
+    }
+
+
+    private void OnTimedEvent(Object source, System.Timers.ElapsedEventArgs e)
+    {
+        InvokeAsync(() =>
+        {
+            LoadMessage();
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+
+
+    public async Task UpInterface()
+    {
+        await LoadMessage();
+        await InvokeAsync(StateHasChanged);
+    }
+
+
+    private void UpdateMessages(Message newMessage)
+    {
+        messages1.Add(newMessage); 
+        LoadMessage();// Добавляем новое сообщение в список
+        InvokeAsync(StateHasChanged); // Обновляем интерфейс
+    }
+
+
+
+
+    async Task SendMessage()
+    {
+        if (selectedMovieId != null && selectedMovieId != "0")
+        {
+            idmov = int.Parse(selectedMovieId);
+        }
+        else
+        {
+            idmov = 1;
+        }
+
+        // Call FilmConnect asynchronously and await its completion
+        await Film();
+
+
+        var newMessage = new Message
+            {
+                UserId = idUs,
+                Content = message,
+                MovieId = ID,
+                Url = photoUrl
+            };
+
+        var response = await Http.PostAsJsonAsync("api/Chat", newMessage);
+        if (response.IsSuccessStatusCode)
+        {
+
+            try
+            {
+                if (hubConnection.State == HubConnectionState.Connected)
+                {
+
+                    await hubConnection.SendAsync("SendMessage", user, message, MovTitle);
+                    await InvokeAsync(StateHasChanged);
+                    if (photoUrl != "")
+                    {
+                        await hubConnection.SendAsync("SendPhoto", user, photoUrl, MovTitle);
+
+                    }
+                    await InvokeAsync(StateHasChanged);
+
+                }
+                else
+                {
+                    ShowAlert("Hub connection is not established.");
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowAlert($"Error sending message: {ex.Message}");
+            }
+
+
+        }
+        else
+        {
+            ShowAlert($"Ошибка при отправке сообщения: {response.StatusCode}");
+        }
+        
+        await InvokeAsync(StateHasChanged);
+        
+        message = string.Empty;
+        
+        await LoadMessage();
+        
+    }
+
+
+
+
+
+
+    private void ShowAlert(string message)
+    {
+        JS.InvokeVoidAsync("alert", message);
+    }
+
+    public async Task Film()
+    {
+        _movie = await Http.GetFromJsonAsync<Movie>($"api/movies/{idmov}");
+        if (_movie == null)
+        {
+            ShowAlert("Received an empty movie object.");
+            return;
+        }
+
+        ID = _movie.Id;
+        MovTitle = _movie.Title;
+
+
+
+    }
+
+
+    public async Task FilmConnect()
+    {
+        try
+        {
+
+
+            await Film();
+
+
+            var newMessage = new Message
+                {
+                    UserId = idUs,
+                    Content = message,
+                    MovieId = ID,
+                    Url = photoUrl
+                };
+
+            var response = await Http.PostAsJsonAsync("api/Chat", newMessage);
+            if (response.IsSuccessStatusCode)
+            {
+
+                try
+                {
+                    if (hubConnection.State == HubConnectionState.Connected)
+                    {
+
+                        await hubConnection.SendAsync("SendMessage", user, message, MovTitle);
+                        await InvokeAsync(StateHasChanged);
+                        if (photoUrl != "")
+                        {
+                            await hubConnection.SendAsync("SendPhoto", user, photoUrl, MovTitle);
+
+                        }
+                        await InvokeAsync(StateHasChanged);
+
+                    }
+                    else
+                    {
+                        ShowAlert("Hub connection is not established.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ShowAlert($"Error sending message: {ex.Message}");
+                }  
+
+                
+            }
+            else
+            {
+                ShowAlert($"Ошибка при отправке сообщения: {response.StatusCode}");
+            }
+
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Error: {ex.Message}");
+        }
+        
+    }
+
+
+
+
+
+
+   
+
+
+
+
+
+
+}
+
+
+
+
+    
+
+
+
+@* <h3>Weather Chat</h3>
+
+<ul>
+    @foreach (var msg in messages1)
+    {
+        @foreach (var Us in usr)
+        {
+            @if (msg.UserId == Us.Id)
+            {
+                @foreach (var mo in movies)
+                {
+                    @if (msg.MovieId == mo.Id)
+                    {
+                        <li>
+                            <strong>@Us.Name:</strong>
+                            @if (!string.IsNullOrEmpty(msg.Content))
+                            {
+                                <span>@msg.Content</span>
+                            }
+                            @if (!string.IsNullOrEmpty(msg.Url))
+                            {
+                                <img src="@msg.Url" alt="Uploaded photo" style="max-width: 200px;" />
+                            }
+                            <small>(Фильм: @mo.Title)</small>
+                        </li>
+
+                    }
+                }
+            }
+        }
+    }
+</ul>
+
+
+<div>
+	<input @bind-value="message" placeholder="Type a message..." />
+    <input placeholder="Enter image URL" @bind-value="photoUrl" />
+    <button @onclick="SendMessage">Send</button>
+    <select @bind="selectedMovieId">
+        <option value="">-- Выберите фильм --</option>
+        @foreach (var movie in movies)
+        {
+            <option value="@movie.Id">@movie.Title</option>
+        }
+    </select>
+</div>
+
+
+<ul>
+    @foreach (var msg in messages1)
+    {
+        @foreach (var Us in usr)
+        {
+            @if (msg.UserId == Us.Id)
+            {
+                @foreach (var mo in movies)
+               {
+                 @if (msg.MovieId == mo.Id)
+                {
+                 <li>
+                    <strong>@Us.Name:</strong>
+                    @if (!string.IsNullOrEmpty(msg.Content))
+                    {
+                        <span>@msg.Content</span>
+                    }
+                    @if (!string.IsNullOrEmpty(msg.Url))
+                    {
+                        <img src="@msg.Url" alt="Uploaded photo" style="max-width: 200px;" />
+                    }
+                            <small>(Фильм: @mo.Title)</small>
+                 </li>
+
+                }
+               }
+            }
+        }
+    }
+</ul> *@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,126 @@
+﻿@page "/register"
+@using BlazorF.ApiFilm.Models
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<head>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+
+<style>
+    .form-control:focus {
+        border-color: #1E90FF;
+        box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+    }
+
+    .btn-primary {
+        background-color: #1E90FF;
+        border-color: #1E90FF;
+    }
+
+    .btn-primary:hover {
+            background-color: #87CEFA;
+            border-color: #87CEFA;
+    }
+
+    .card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-link {
+        background-color: #1E90FF;
+        border-color: white;
+        color: white;
+    }
+</style>
+
+<div class="container mt-5" style="max-width: 700px;">
+    <h4 class="text-center mb-4">Регистрация</h4>
+    <div class="card">
+        <div class="card-body">
+            <EditForm Model="newUser" OnValidSubmit="HandleRegister">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger mb-3" />
+
+                <div class="form-group">
+                    <label for="name">Имя</label>
+                    <InputText @bind-Value="newUser.Name" id="name" placeholder="Введите ваше имя" class="form-control" />
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <InputText @bind-Value="newUser.Email" id="email" placeholder="Введите ваш email" class="form-control" />
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Описание</label>
+                    <InputText @bind-Value="newUser.Description" id="description" placeholder="Введите описание" class="form-control" />
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <InputText @bind-Value="newUser.Password" id="password" type="password" placeholder="Введите пароль" class="form-control" />
+                </div>
+
+
+                <div class="form-check mb-3">
+                    <InputCheckbox @bind-Value="isAdmin" class="form-check-input" />
+                    <label class="form-check-label">Администратор</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">Зарегистрироваться</button>
+            </EditForm>
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <NavLink href="/counter" class="btn btn-link">Уже зарегистрированы? Войти</NavLink>
+    </div>
+</div>
+
+@code {
+
+    private User newUser = new User();
+    private bool isAdmin = false;
+
+    private async Task HandleRegister()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(newUser.Name) || string.IsNullOrEmpty(newUser.Password) || string.IsNullOrEmpty(newUser.Email))
+            {
+                ShowAlert("Пожалуйста, введите имя пользователя, пароль и почту.");
+                return;
+            }
+
+            newUser.Role = isAdmin ? "Администратор" : "Пользователь";
+
+            var response = await Http.PostAsJsonAsync("api/User", newUser);
+            if (response.IsSuccessStatusCode)
+            {
+                newUser = new User();
+                isAdmin = false;
+                ShowAlert("Регистрация прошла успешно!");
+                NavigationManager.NavigateTo("/counter");
+            }
+            else
+            {
+                var errorMessage = await response.Content.ReadAsStringAsync();
+                ShowAlert($"Ошибка регистрации: {errorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Ошибка: {ex.Message}");
+        }
+    }
+
+    private void ShowAlert(string message)
+    {
+        JS.InvokeVoidAsync("alert", message);
+    }
+}

@@ -1,0 +1,84 @@
+﻿@page "/movies/{id:int}"
+@using BlazorF.ApiFilm.Models
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<style>
+    .movie-details-container {
+        max-width: 800px;
+        margin: 20px auto;
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        text-align: center; 
+    }
+
+    h3 {
+        color: #1E90FF;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    h4 {
+        color: #333;
+        margin-bottom: 10px;
+    }
+
+    img {
+        max-width: 200px;
+        height: auto;
+        border-radius: 4px;
+        padding: 5px;
+        margin-bottom: 15px;
+    }
+
+    p {
+        color: #555;
+        margin-bottom: 8px;
+    }
+
+    .btn-primary {
+        background-color: #1E90FF !important; 
+        border-color: #1E90FF !important;
+        color: white;
+    }
+
+        .btn-primary:hover {
+            background-color: #87CEFA;
+            border-color: #87CEFA;
+        }
+</style>
+
+<div class="movie-details-container">
+    <h3>Информация о фильме</h3>
+
+    @if (movie == null)
+    {
+        <p><em>Загрузка...</em></p>
+    }
+    else
+    {
+        <div>
+            <h4>@movie.Title</h4>
+            <img src="@movie.ImageUrl" alt="@movie.Title" />
+            <p><strong>Жанр:</strong> @movie.Genre</p>
+            <p><strong>Дата выхода:</strong> @movie.ReleaseDate.ToShortDateString()</p>
+			<p><strong>Рейтинг:</strong> @movie.Rating</p>
+            <p><strong>Описание:</strong> @movie.Description</p>
+            <NavLink class="btn btn-primary" href="/movies">Назад в каталог</NavLink>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Movie? movie;
+
+    protected override async Task OnInitializedAsync()
+    {
+        movie = await Http.GetFromJsonAsync<Movie>($"api/movies/{Id}");  // Замените на правильный URL вашего API
+    }
+}

@@ -1,0 +1,82 @@
+﻿@page "/profile"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+@using BlazorF.ApiFilm.Models
+
+
+<style>
+    .btn-primary {
+    background-color: #1E90FF !important;
+    border-color: #1E90FF !important;
+    color: white;
+    }
+
+    .btn-primary:hover {
+    background-color: #87CEFA;
+    border-color: #87CEFA;
+    }
+</style>
+
+
+<h3>Профиль пользователя</h3>
+
+@if (user == null)
+{
+    <p>Загрузка данных...</p>
+}
+else
+{
+    <div class="card">
+        <div class="card-header">
+            <h5>Профиль</h5>
+        </div>
+        <div class="card-body">
+            <p><strong>ID:</strong> @user.Id</p>
+            <p><strong>Name:</strong> @user.Name</p>
+            <p><strong>Email:</strong> @user.Email</p>
+            
+            <!-- Добавьте другие поля по необходимости "/lsmessage" -->
+        </div>
+
+        <p>
+            <NavLink class="btn btn-primary" href="/movies">Перейти в каталог</NavLink>
+            <NavLink class="btn btn-primary" href="/weather">Перейти в общий чат</NavLink>
+            <NavLink class="btn btn-primary" href="/lsmessage">Перейти в ЛС</NavLink>
+            @if (usr1.Role == "Администратор")
+            {
+            
+
+                <NavLink class="btn btn-primary" href="/admin">Админка</NavLink>
+            
+            }
+        </p>
+    </div>
+}
+
+@code {
+    private User user;
+    public User? usr1 = Counter.idU;
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        try
+        {
+            user = Counter.idU;
+            // await response.Content.ReadFromJsonAsync<User>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Произошла ошибка: {ex.Message}");
+        }
+
+    }
+
+
+
+
+
+
+
+}

@@ -1,0 +1,123 @@
+﻿
+
+
+@page "/movies"
+@using BlazorF.ApiFilm.Models
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+
+
+<style>
+    /* Ваши стили остаются прежними */
+</style>
+
+<h3>Каталог фильмов</h3>
+<p style="text-align: left;">
+
+    <NavLink class="btn btn-primary" href="/profile">Назад в профиль</NavLink>
+</p>
+@if (usr1.Role == "Администратор")
+{
+
+
+    <NavLink class="btn btn-primary" href="/admin">Админка</NavLink>
+
+}
+<input @bind="searchString" placeholder="Введите название фильма для поиска" />
+<button @onclick="SearchMovies1" class="btn btn-primary">Поиск</button>
+
+@if (isLoading)
+{
+    <p><em>Загрузка...</em></p>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(searchMessage))
+    {
+        <p class="search-message">@searchMessage</p>
+    }
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Изображение</th>
+                <th>Название</th>
+                <th>Жанр</th>
+                <th>Рейтинг</th>
+                <th>Информация</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (filteredMovies.Any())
+            {
+                foreach (var movie in filteredMovies)
+                {
+                    <tr>
+                        <td><img src="@movie.ImageUrl" alt="@movie.Title" style="max-width: 100px; max-height: 150px;" /></td>
+                        <td>@movie.Title</td>
+                        <td>@movie.Genre</td>
+                        <td>@movie.Rating</td>
+                        <td>
+                            <NavLink href="@($"/movies/{movie.Id}")" class="btn btn-primary">Подробнее</NavLink>
+                        </td>
+                        
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="5">Нет результатов.</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+}
+
+@code {
+    public static List<Movie> movies = new();
+    private List<Movie> filteredMovies = new(); 
+    private string searchString = string.Empty;
+    private bool isLoading = true;
+    private string searchMessage = string.Empty; 
+    public User? usr1 = Counter.idU;
+
+    protected override async Task OnInitializedAsync()
+    {
+        movies = await Http.GetFromJsonAsync<List<Movie>>("api/movies"); 
+        Console.WriteLine($"Loaded {movies.Count} movies.");
+        filteredMovies = movies; 
+        isLoading = false;
+        
+    }
+
+    private async Task SearchMovies1()
+    {
+        await ShowAlert("WEy"); // Вызываем асинхронный метод с await
+        Console.WriteLine("Loaded movies.");
+        if (string.IsNullOrWhiteSpace(searchString))
+        {
+            filteredMovies = movies; 
+            searchMessage = "Показаны все фильмы."; 
+        }
+        else
+        {
+            filteredMovies = movies
+                .Where(m => m.Title.ToLower().Contains(searchString.ToLower()))
+                .ToList(); 
+
+            searchMessage = filteredMovies.Any() 
+                ? $"Найдено фильмов: {filteredMovies.Count}." 
+                : "Ничего не найдено."; 
+        }
+
+        StateHasChanged(); // Обновляем интерфейс
+    }
+
+    private async Task ShowAlert(string message)
+    {
+        await JS.InvokeVoidAsync("alert", message); // Используем await для асинхронного вызова
+    }
+}

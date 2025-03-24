@@ -1,0 +1,80 @@
+﻿@page "/"
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+
+<style>
+   
+    body {
+        background-image: url('https://avatars.mds.yandex.net/i?id=67d5bf60e036ca7b5e9b9aab3869ea14_l-5235913-images-thumbs&n=13'); /* Замените на ваш URL изображения */
+        background-size: cover; /* Чтобы изображение занимало всю страницу */
+        background-position: center; /* Центрируем изображение */
+        background-repeat: no-repeat; /* Не повторяем изображение */
+        height: 100vh; /* Высота на всю высоту окна */
+        margin: 0; /* Убираем отступы */
+    }
+
+
+    .background {
+       
+        background-position: center;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+    }
+
+    .btn-primary {
+        padding: 15px 30px;
+        font-size: 20px;
+        background-color: #32CD32;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s, transform 0.3s;
+        text-align: end;
+        position: absolute;
+        bottom: -140px;
+    }
+
+        .btn-primary:hover {
+            background-color: #98FB98;
+            transform: scale(1.1);
+        }
+
+    
+    h1 {
+        min-height: 10em;
+        display: table-cell;
+        vertical-align: middle; 
+        background-position: center;
+        position: center;
+        display: flex;
+        justify-content: center;
+        color:white;
+    }
+</style>
+
+<h1>Добро пожаловать!</h1>
+<div class="background">
+	
+    <button type="button" class="btn btn-primary" @onclick="NavigateToOtherPage">Переход на Регистрацию/Вход</button>
+    
+    <NavLink class="btn btn-primary" href="/counter">Перейти на другую страницу</NavLink>
+</div>
+
+@code {
+    
+    private void NavigateToOtherPage()
+    {
+        ShowAlert("Переход в Авторизацию");
+        NavigationManager.NavigateTo("/counter");
+    }
+
+    
+
+    private void ShowAlert(string message)
+    {
+        JS.InvokeVoidAsync("alert", message);
+    }
+}

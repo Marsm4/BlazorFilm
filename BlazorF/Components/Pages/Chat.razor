@@ -1,0 +1,728 @@
+﻿@page "/lsmessage"
+@using System.Net.Http.Headers;
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.SignalR.Client
+@rendermode InteractiveServer
+
+
+
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+<style>
+    /* Общий стиль для страницы */
+    body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f9;
+    margin: 0;
+    padding: 20px;
+    }
+
+    /* Заголовок */
+    h3 {
+    color: #333;
+    text-align: center;
+    margin-bottom: 20px;
+    }
+
+    /* Список сообщений */
+    ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    max-height: 400px; /* Ограничение высоты списка */
+    overflow-y: auto; /* Добавление прокрутки */
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #fff;
+    padding: 10px;
+    }
+
+    /* Элементы списка */
+    li {
+    margin-bottom: 15px;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    }
+
+    li:last-child {
+    border-bottom: none; /* Убираем границу для последнего элемента */
+    }
+
+    /* Имя пользователя */
+    strong {
+    color: #007bff;
+    font-weight: bold;
+    }
+
+    /* Текст сообщения */
+    span {
+    margin-right: 10px;
+    font-size: 14px;
+    color: #555;
+    }
+
+    /* Изображения */
+    img {
+    max-width: 200px;
+    border-radius: 8px;
+    margin-top: 5px;
+    display: block;
+    }
+
+    /* Название фильма */
+    small {
+    color: #888;
+    font-size: 12px;
+    }
+
+    /* Форма отправки сообщений */
+    div.form-container {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    }
+
+    input[type="text"],
+    input[type="url"] {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    }
+
+    button {
+    padding: 10px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    }
+
+    button:hover {
+    background-color: #0056b3;
+    }
+
+    /* Выпадающий список фильмов */
+    select {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    }
+</style>
+
+
+
+@if (usr1.Role == "Администратор")
+{
+    <p style="text-align: left;">
+
+        <NavLink class="btn btn-primary" href="/admin">Админка</NavLink>
+    </p>
+}
+@if (isVariable)
+{
+    <div class="container">
+
+        <h4>Список пользователей</h4>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Имя</th>
+                    <th>Email</th>
+                    <th>Описание</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in usr)
+                {
+                    <tr>
+                        <td>@user.Name</td>
+                        <td>@user.Email</td>
+                        <td>@user.Description</td>
+                        <td>
+                            <button onclick="@(async() => await ConectUser2(user.Id))" class="btn btn-danger">Написать</button>
+
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <p>
+
+            <NavLink class="btn btn-primary" href="/profile">Назад в профиль</NavLink>
+        </p>
+    </div>
+
+}
+else
+{ 
+
+
+
+    @foreach (var msg in messages1)
+    {
+        @if ((msg.UserId1 == idUs && msg.UserId2 == Uid2) || (msg.UserId1 == Uid2 && msg.UserId2 == idUs))
+        {
+            <div>
+                <!-- Отображаем имя отправителя -->
+                <strong>@GetUserName(msg.UserId1):</strong>
+                 <p>
+                <!-- Отображаем текст сообщения -->
+                @if (!string.IsNullOrEmpty(msg.Content))
+                {
+                   <span>@msg.Content</span>
+                }
+
+                <!-- Отображаем URL, если он есть -->
+                @if (!string.IsNullOrEmpty(msg.Url))
+                {
+                    <img src="@msg.Url" />
+                    
+                }
+                @if (msg.UserId1 == idUs)
+                {
+                  <button @onclick="() => EditMes(msg)" class="btn btn-light">
+                   <i class="fa-solid fa-pen"></i>
+                  </button>
+                }
+                 </p>
+            </div>
+        }
+    }
+
+    @* <ul>
+        @foreach (var msg in messages1)
+        {
+            @foreach (var Us in usr)
+            {
+                @if (msg.UserId == Us.Id)
+                {
+                    
+                        
+                            <li>
+                                <strong>@Us.Name:</strong>
+                                @if (!string.IsNullOrEmpty(msg.Content))
+                                {
+                                    <span>@msg.Content</span>
+                                }
+                                @if (!string.IsNullOrEmpty(msg.Url))
+                                {
+                                    <img src="@msg.Url" alt="Uploaded photo" />
+                                }
+                                
+                                @if (Us.Id == idUs)
+                                {
+                                    <button @onclick="() => EditMes(msg)" class="btn btn-light">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
+                                }
+                            </li>
+                        
+                    
+                }
+            }
+        }
+    </ul> *@
+    <div class="form-container">
+        <EditForm Model="mesa" OnValidSubmit="isEditing ? HandleUpdateMes : HandleCreateMes" FormName="movieForm">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <div class="form-group">
+
+                <InputTextArea id="Content" @bind-Value="mesa.Content" placeholder="Содержание" class="form-control" />
+            </div>
+            <div class="form-group">
+
+                <InputText id="Url" @bind-Value="mesa.Url" placeholder="URL изображения" class="form-control" />
+            </div>
+            <button type="submit" class="btn btn-primary">@((isEditing) ? "Сохранить" : "Отправить")</button>
+            @if (isEditing)
+            {
+                <button type="button" class="btn btn-secondary" @onclick="ResetForm">Отмена</button>
+            }
+        </EditForm>
+
+        <p style="text-align: left;">
+
+            <NavLink class="btn btn-primary" href="/profile">Назад в профиль</NavLink>
+        </p>
+    </div>
+
+
+
+}
+
+
+
+@code {
+
+    private bool isVariable = true;
+    private void ToggleFormU() => isVariable = !isVariable; 
+    string message = "";
+    string user = "";
+    string iUser = @Counter.idU.Name;
+    string movie = "";
+    HubConnection hubConnection;
+    List<string> messages = new List<string>();
+    List<LsMessage> messages1 = new List<LsMessage>();
+    private List<Movie> movies = new List<Movie>();
+    private User user1;
+    public string selectedMovieId;
+    public int ID;
+    public string MovTitle;
+    public int idmov;
+    public int idUs = @Counter.idU.Id;
+    private string photoUrl = "";
+    private int selectedMessageId;
+    public string NameU;
+    private List<User> usr = new List<User>();
+    private List<string> items = new List<string>();
+    private System.Timers.Timer timer;
+    public int Uid2;
+    public User? usr1 = Counter.idU;
+    private bool isEditing = false;
+    private LsMessage mesa = new LsMessage();
+
+
+    private string GetUserName(int userId)
+    {
+        var user = usr.FirstOrDefault(u => u.Id == userId);
+        return user?.Name ?? "Неизвестный пользователь";
+    }
+
+
+
+    private async Task LoadMessage()
+    {
+
+        try
+        {
+            var response = await Http.GetAsync("api/Chat/lsMessage");
+            if (response.IsSuccessStatusCode)
+            {
+                messages1 = await response.Content.ReadFromJsonAsync<List<LsMessage>>();
+
+            }
+            else
+            {
+                ShowAlert($"Ошибка загрузки сообщений: {response.StatusCode}");
+            }
+
+
+        }
+        catch (Exception ex)
+        {
+            // ShowAlert($"Ошибка: {ex.Message}");
+        }
+
+
+    }
+
+
+
+
+    private async Task LoadUser()
+    {
+
+        try
+        {
+            var response = await Http.GetAsync("api/User");
+            if (response.IsSuccessStatusCode)
+            {
+
+                usr = await response.Content.ReadFromJsonAsync<List<User>>();
+            }
+            else
+            {
+                ShowAlert($"Ошибка загрузки сообщений: {response.StatusCode}");
+            }
+
+
+        }
+        catch (Exception ex)
+        {
+            // ShowAlert($"Ошибка: {ex.Message}");
+        }
+
+
+    }
+
+
+    private async Task ConectUser2(int Id2)
+    {
+        
+        JS.InvokeVoidAsync("alert", "Переход");
+
+        try
+        {
+        isVariable = false;
+        Uid2 = Id2;
+        // await RegUser();
+        await LoadMessage();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка: {ex.Message}");
+        }
+    }
+
+    // async Task RegUser()
+    // {
+    //     // await hubConnection.SendAsync("RegisterUser", iUser);
+    //     user1 = await Http.GetFromJsonAsync<User>($"api/User/{Uid2}");
+    //     if (user1 == null)
+    //     {
+    //         ShowAlert("Received an empty movie object.");
+    //         return;
+    //     }
+    //     NameU = user1.Name;
+    //     // await hubConnection.SendAsync("RegisterUser", NameU);
+    //     // message = string.Empty;
+    // }
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        await LoadUser();
+        // await LoadMessage();
+
+        user = iUser;
+        hubConnection = new HubConnectionBuilder().WithUrl("https://localhost:7023/chatHub").Build();
+        try
+        {
+            
+            hubConnection.On<string, string>("ReceiveMessageLs", (user, message) =>
+            {
+
+                var newMessage = new LsMessage
+                    {
+                        UserId1 = idUs,
+                        UserId2 = Uid2,
+                        Content = message,
+                        Url = photoUrl
+                    };
+
+                UpdateMessages(newMessage);
+
+                InvokeAsync(StateHasChanged);
+                // StateHasChanged();
+
+            });
+            await InvokeAsync(StateHasChanged);
+            hubConnection.On<string, string>("ReceivePhotoLs", (user, photoPath) =>
+            {
+
+                var newMessage = new LsMessage
+                    {
+                        UserId1 = idUs,
+                        UserId2 = Uid2,
+                        Content = message,
+                        Url = photoUrl
+                    };
+
+                UpdateMessages(newMessage);
+
+                InvokeAsync(StateHasChanged);
+                // StateHasChanged();
+
+            });
+            await InvokeAsync(StateHasChanged);
+
+
+            await hubConnection.StartAsync();
+
+        }
+        catch
+        {
+            ShowAlert($"Error sending message: {hubConnection.State}");
+        }
+
+
+        timer = new System.Timers.Timer(1500); // Каждые 2 секунды
+        timer.Elapsed += OnTimedEvent;
+        timer.AutoReset = true;
+        timer.Enabled = true;
+
+
+
+
+    }
+
+    private async Task HandleUpdateMes()
+    {
+        try
+        {
+            var newMessage = new LsMessage
+                {
+                    UserId1 = mesa.Id,
+                    Content = mesa.Content,
+                    UserId2 = Uid2,
+                    Url = mesa.Url
+                };
+            var response = await Http.PutAsJsonAsync($"api/Chat/LsMes/{mesa.Id}", mesa);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadMessage();
+                ResetForm();
+            }
+            else
+            {
+                var errorMessage = await response.Content.ReadAsStringAsync();
+                ShowAlert($"Ошибка обновления сообщения: {errorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Ошибка: {ex.Message}");
+        }
+    }
+
+
+    private async Task HandleCreateMes()
+    {
+        try
+        {
+            
+
+            // Call FilmConnect asynchronously and await its completion
+            
+            var newMessage = new LsMessage
+                {
+                    UserId1 = idUs,
+                    Content = mesa.Content,
+                    UserId2 = Uid2,
+                    Url = mesa.Url
+                };
+            var response = await Http.PostAsJsonAsync("api/Chat/lsMes", newMessage);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadMessage();
+                ResetForm();
+            }
+            else
+            {
+                var errorMessage = await response.Content.ReadAsStringAsync();
+                ShowAlert($"Ошибка добавления сообщения: {errorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Ошибка: {ex.Message}");
+        }
+    }
+
+    private void ResetForm()
+    {
+
+        mesa = new LsMessage();
+        isEditing = false;
+        selectedMovieId = "";
+    }
+
+    private void EditMes(LsMessage mesag)
+    {
+        mesa = mesag;
+        isEditing = true;
+        
+    }
+
+
+    private void OnTimedEvent(Object source, System.Timers.ElapsedEventArgs e)
+    {
+        InvokeAsync(() =>
+        {
+            LoadMessage();
+            StateHasChanged();
+        });
+    }
+
+
+
+    public async Task UpInterface()
+    {
+        await LoadMessage();
+        await InvokeAsync(StateHasChanged);
+    }
+
+
+    private void UpdateMessages(LsMessage newMessage)
+    {
+        messages1.Add(newMessage);
+        LoadMessage();// Добавляем новое сообщение в список
+        InvokeAsync(StateHasChanged); // Обновляем интерфейс
+    }
+
+
+
+
+    async Task SendMessage()
+    {
+        
+        var newMessage = new LsMessage
+            {
+                UserId1 = idUs,
+                UserId2 = Uid2,
+                Content = message,
+                Url = photoUrl
+            };
+
+        var response = await Http.PostAsJsonAsync("api/Chat/lsMes", newMessage);
+        if (response.IsSuccessStatusCode)
+        {
+
+            try
+            {
+                if (hubConnection.State == HubConnectionState.Connected)
+                {
+
+                    await hubConnection.SendAsync("SendMessageLs", user, message, MovTitle);
+                    await InvokeAsync(StateHasChanged);
+                    if (photoUrl != "")
+                    {
+                        await hubConnection.SendAsync("SendPhotoLs", user, photoUrl, MovTitle);
+
+                    }
+                    await InvokeAsync(StateHasChanged);
+
+                }
+                else
+                {
+                    ShowAlert("Hub connection is not established.");
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowAlert($"Error sending message: {ex.Message}");
+            }
+
+
+        }
+        else
+        {
+            ShowAlert($"Ошибка при отправке сообщения: {response.StatusCode}");
+        }
+
+        await InvokeAsync(StateHasChanged);
+
+        message = string.Empty;
+
+        await LoadMessage();
+
+    }
+
+
+
+
+
+
+    private void ShowAlert(string message)
+    {
+        JS.InvokeVoidAsync("alert", message);
+    }
+
+    
+
+
+    public async Task FilmConnect()
+    {
+        try
+        {
+
+
+            
+
+
+            var newMessage = new LsMessage
+                {
+                    UserId1 = idUs,
+                    UserId2 = Uid2,
+                    Content = message,
+                    Url = photoUrl
+                };
+
+            var response = await Http.PostAsJsonAsync("api/Chat", newMessage);
+            if (response.IsSuccessStatusCode)
+            {
+
+                try
+                {
+                    if (hubConnection.State == HubConnectionState.Connected)
+                    {
+
+                        await hubConnection.SendAsync("SendMessageLs", user, message);
+                        await InvokeAsync(StateHasChanged);
+                        if (photoUrl != "")
+                        {
+                            await hubConnection.SendAsync("SendPhotoLs", user, photoUrl);
+
+                        }
+                        await InvokeAsync(StateHasChanged);
+
+                    }
+                    else
+                    {
+                        ShowAlert("Hub connection is not established.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ShowAlert($"Error sending message: {ex.Message}");
+                }
+
+
+            }
+            else
+            {
+                ShowAlert($"Ошибка при отправке сообщения: {response.StatusCode}");
+            }
+
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Error: {ex.Message}");
+        }
+
+    }
+
+
+    
+}
+
+@* 
+                        напиши как сделать так чтобы
+<ul>
+    @foreach (var msg in messages1)
+    {
+        @foreach (var Us in usr)
+        {
+            @if (msg.UserId1 == idUs && msg.UserId2 == Uid2)
+            {
+                <li>
+                    <strong>@Us.Name:</strong>
+                    @if (!string.IsNullOrEmpty(msg.Content))
+                    {
+                        <span>@msg.Content</span>
+                    }
+                    @if (!string.IsNullOrEmpty(msg.Url))
+                    {
+                        <img src="@msg.Url" alt="Uploaded photo" />
+                    }
+                </li>
+            }
+        }
+    }
+</ul>
+выводил сообщения только 1 и 2 пользователей
+
+
+
+ *@
