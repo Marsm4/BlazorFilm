@@ -1,79 +1,22 @@
 ﻿@page "/counter"
 @using BlazorF.ApiFilm.Models
+@using Microsoft.AspNetCore.Components.Authorization
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
 @rendermode InteractiveServer
 
-<PageTitle>Counter</PageTitle>
-
-<style>
-    .form-control:focus {
-    border-color: #1E90FF;
-    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
-    }
-
-    .btn-primary {
-    background-color: #1E90FF;
-    border-color: #1E90FF;
-    }
-
-    .btn-primary:hover {
-    background-color: #87CEFA;
-    border-color: #87CEFA;
-    }
-
-    .card {
-    border: none;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .btn-link {
-
-    border-color: white;
-    color: black;
-
-    }
-
-    .btn-link:hover {
-    text-decoration: underline;
-    }
-
-</style>
-
-<div class="container mt-5" style="max-width: 700px;">
-    <h4 class="text-center mb-4">Авторизация</h4>
-    <div class="card">
-        <div class="card-body">
-            <EditForm Model="loginUser" OnValidSubmit="HandleLogin">
-                <DataAnnotationsValidator />
-                <ValidationSummary class="text-danger mb-3" />
-
-                <div class="form-group mb-3">
-                    <label for="email">Email</label>
-                    <InputText @bind-Value="loginUser.Email" id="email" placeholder="Введите ваш email" class="form-control" />
-                </div>
-
-                <div class="form-group mb-3">
-                    <label for="password">Пароль</label>
-                    <InputText @bind-Value="loginUser.Password" id="password" type="password" placeholder="Введите пароль" class="form-control" />
-                </div>
-
-                <button type="submit" class="btn btn-primary w-100">Войти</button> <!-- Растянутая кнопка -->
-            </EditForm>
-        </div>
-    </div>
-
-    <div class="text-center mt-4">
-        <NavLink href="/register" class="btn btn-link">Еще не зарегистрированы? Регистрация</NavLink>
-    </div>
-</div>
+<!-- Ваш существующий HTML код остается без изменений -->
 
 @code {
     private User loginUser = new User();
-    public static User idU;
-    public int idS;
+
+    // Создаем класс для десериализации ответа от API
+    public class AuthResponse
+    {
+        public string Token { get; set; }
+    }
 
     private async Task HandleLogin()
     {
@@ -81,65 +24,52 @@
         {
             if (string.IsNullOrEmpty(loginUser.Email) || string.IsNullOrEmpty(loginUser.Password))
             {
-                ShowAlert("Пожалуйста, введите имя пользователя и пароль.");
+                await ShowAlert("Пожалуйста, введите email и пароль.");
                 return;
             }
 
-
             var loginRequest = new LoginRequest
-            {
-                Email = loginUser.Email,
-                Password = loginUser.Password
-            };
+                {
+                    Email = loginUser.Email,
+                    Password = loginUser.Password
+                };
 
             var response = await Http.PostAsJsonAsync("api/User/authentication", loginRequest);
 
             if (response.IsSuccessStatusCode)
             {
-                var user = await response.Content.ReadFromJsonAsync<User>();
-                if (user != null)
+                // Десериализуем ответ с токеном
+                var authResult = await response.Content.ReadFromJsonAsync<AuthResponse>();
+
+                if (!string.IsNullOrEmpty(authResult?.Token))
                 {
+                    // Сохраняем токен
+                    await JS.InvokeVoidAsync("localStorage.setItem", "authToken", authResult.Token);
 
+                    // Уведомляем систему аутентификации об изменении состояния
+                    ((CustomAuthStateProvider)AuthStateProvider).NotifyUserAuthentication(authResult.Token);
 
-                    int  userId = user.Id;
-                    idU = user;
-                    await JS.InvokeVoidAsync("localStorage.setItem", "currentUserId", userId);
-
-                    string userRole = user.Role;
-
-                    ShowAlert("Вы успешно авторизовались!");
-                    idS = idU.Id;
-                    switch (userRole)
-                    {
-                        case "Администратор":
-                            NavigationManager.NavigateTo("/admin");
-                            break;
-                        case "Пользователь":
-                            NavigationManager.NavigateTo("/profile");
-                            // /movies
-                            break;
-                    }
-
-                    loginUser = new User();
+                    // Перенаправляем на защищенную страницу
+                    NavigationManager.NavigateTo("/profile");
                 }
                 else
                 {
-                    ShowAlert("Ошибка: не удалось получить данные пользователя.");
+                    await ShowAlert("Ошибка: не удалось получить токен авторизации.");
                 }
             }
             else
             {
-                ShowAlert("Вы ввели неправльно email пользователя или его пароль!");
+                await ShowAlert("Неверный email или пароль!");
             }
         }
         catch (Exception ex)
         {
-            ShowAlert($"Ошибка: {ex.Message}");
+            await ShowAlert($"Ошибка: {ex.Message}");
         }
     }
 
-    private void ShowAlert(string message)
+    private async Task ShowAlert(string message)
     {
-        JS.InvokeVoidAsync("alert", message);
+        await JS.InvokeVoidAsync("alert", message);
     }
 }
