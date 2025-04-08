@@ -83,26 +83,38 @@
 </div>
 
 @code {
-
-    private User newUser = new User();
+     private UserRegisterRequest newUser = new UserRegisterRequest();
+ //   private User newUser = new User();
     private bool isAdmin = false;
+
+
 
     private async Task HandleRegister()
     {
         try
         {
-            if (string.IsNullOrEmpty(newUser.Name) || string.IsNullOrEmpty(newUser.Password) || string.IsNullOrEmpty(newUser.Email))
+            if (string.IsNullOrEmpty(newUser.Name) ||
+                string.IsNullOrEmpty(newUser.Password) ||
+                string.IsNullOrEmpty(newUser.Email))
             {
                 ShowAlert("Пожалуйста, введите имя пользователя, пароль и почту.");
                 return;
             }
 
-            newUser.Role = isAdmin ? "Администратор" : "Пользователь";
+            var userToCreate = new User
+                {
+                    Email = newUser.Email,
+                    Name = newUser.Name,
+                    Description = newUser.Description,
+                    Password = newUser.Password, // Пароль будет хеширован на сервере
+                    Role = isAdmin ? "Admin" : "User" // Используем английские названия ролей
+                };
 
-            var response = await Http.PostAsJsonAsync("api/User", newUser);
+            var response = await Http.PostAsJsonAsync("api/User", userToCreate);
+
             if (response.IsSuccessStatusCode)
             {
-                newUser = new User();
+                newUser = new UserRegisterRequest();
                 isAdmin = false;
                 ShowAlert("Регистрация прошла успешно!");
                 NavigationManager.NavigateTo("/counter");

@@ -24,4 +24,22 @@ namespace BlazorF.ApiFilm.Models
         [Required]
         public string Password { get; set; }
     }
+    public class AuthResponse
+    {
+        public string Token { get; set; }
+    }
+    public class UserRegisterRequest
+    {
+        [Required]
+        public string Name { get; set; }
+
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; }
+
+        public string Description { get; set; }
+
+        [Required]
+        public string Password { get; set; }
+    }
 }

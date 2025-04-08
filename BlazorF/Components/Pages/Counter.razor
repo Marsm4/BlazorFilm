@@ -1,5 +1,6 @@
 ﻿@page "/counter"
 @using BlazorF.ApiFilm.Models
+@using System.Text.Json
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject NavigationManager NavigationManager
@@ -74,72 +75,52 @@
     private User loginUser = new User();
     public static User idU;
     public int idS;
+    private LoginRequest loginRequest = new LoginRequest();
+    private User currentUser;
 
     private async Task HandleLogin()
     {
         try
         {
-            if (string.IsNullOrEmpty(loginUser.Email) || string.IsNullOrEmpty(loginUser.Password))
-            {
-                ShowAlert("Пожалуйста, введите имя пользователя и пароль.");
-                return;
-            }
-
-
-            var loginRequest = new LoginRequest
-            {
-                Email = loginUser.Email,
-                Password = loginUser.Password
-            };
-
             var response = await Http.PostAsJsonAsync("api/User/authentication", loginRequest);
 
             if (response.IsSuccessStatusCode)
             {
-                var user = await response.Content.ReadFromJsonAsync<User>();
-                if (user != null)
+                var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
+
+                if (!string.IsNullOrEmpty(authResponse?.Token))
                 {
+                    // Сохраняем токен
+                    await JS.InvokeVoidAsync("localStorage.setItem", "authToken", authResponse.Token);
 
+                    // Получаем информацию о пользователе
+                    var userResponse = await Http.GetFromJsonAsync<User>($"api/User/by-email/{loginRequest.Email}");
 
-                    int  userId = user.Id;
-                    idU = user;
-                    await JS.InvokeVoidAsync("localStorage.setItem", "currentUserId", userId);
-
-                    string userRole = user.Role;
-
-                    ShowAlert("Вы успешно авторизовались!");
-                    idS = idU.Id;
-                    switch (userRole)
+                    if (userResponse != null)
                     {
-                        case "Администратор":
-                            NavigationManager.NavigateTo("/admin");
-                            break;
-                        case "Пользователь":
-                            NavigationManager.NavigateTo("/profile");
-                            // /movies
-                            break;
-                    }
+                        currentUser = userResponse;
+                        await JS.InvokeVoidAsync("localStorage.setItem", "currentUser", JsonSerializer.Serialize(userResponse));
 
-                    loginUser = new User();
-                }
-                else
-                {
-                    ShowAlert("Ошибка: не удалось получить данные пользователя.");
+                        await ShowAlert("Вы успешно авторизовались!");
+
+                        NavigationManager.NavigateTo(userResponse.Role == "Admin" ? "/admin" : "/profile");
+                    }
                 }
             }
             else
             {
-                ShowAlert("Вы ввели неправльно email пользователя или его пароль!");
+                await ShowAlert("Неверный email или пароль!");
             }
         }
         catch (Exception ex)
         {
-            ShowAlert($"Ошибка: {ex.Message}");
+            await ShowAlert($"Ошибка: {ex.Message}");
         }
     }
 
-    private void ShowAlert(string message)
+    private async Task ShowAlert(string message)
     {
-        JS.InvokeVoidAsync("alert", message);
+        await JS.InvokeVoidAsync("alert", message);
     }
+}
 }
